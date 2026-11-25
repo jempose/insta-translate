@@ -1,0 +1,26 @@
+{
+  "name": "insta-translate",
+  "productName": "即时译",
+  "version": "1.0.1",
+  "description": "选中即译：在任意 Windows 软件里选中中文/英文，按快捷键立刻在文字旁显示译文",
+  "private": true,
+  "author": "郑铮培",
+  "license": "MIT",
+  "os": [
+    "win32"
+  ],
+  "scripts": {
+    "icons": "node scripts/make-icon.js",
+    "build": "node scripts/make-icon.js && node scripts/build-native.js",
+    "installer": "node scripts/make-icon.js && node scripts/build-native.js && node scripts/build-installer.js"
+  },
+  "keywords": [
+    "translate",
+    "translation",
+    "windows",
+    "tray",
+    "selection",
+    "chinese",
+    "uiautomation"
+  ]
+}

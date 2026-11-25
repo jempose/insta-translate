@@ -1,0 +1,16 @@
+# 构建产物
+dist/
+build/
+node_modules/
+
+# 运行时产物
+*.log
+livetest-*.txt
+*.user
+*.suo
+
+# 临时
+.vs/
+.idea/
+Thumbs.db
+desktop.ini
