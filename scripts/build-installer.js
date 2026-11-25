@@ -89,7 +89,7 @@ function main() {
     process.exit(1);
   }
 
-  // 4) 输出：dist 里一份 + 干净目录一份（D:\dsh 带低完整性标记，从那里运行会被降权）
+  // 4) 输出：dist 里一份 + 干净目录一份（避免带低完整性标记的目录把程序降权）
   const ascii = path.join(ROOT, 'dist', `InstaTranslate-${VERSION}-setup.exe`);
   rmf(OUT);
   rmf(ascii);

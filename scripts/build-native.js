@@ -114,7 +114,7 @@ function main() {
     'ascii'
   );
 
-  // 另存一份到"干净目录"：工作区 D:\dsh 带低完整性标记，从那里启动的程序会一直是低权限，
+  // 另存一份到"干净目录"：某些工作区目录带低完整性标记，从那里启动的程序会一直是低权限，
   // 低权限读不到别的程序的选区（这是之前所有失败的根因）。放到 D:\InstaTranslate 就不受影响。
   // 输出到用户主目录：不要放在带低完整性标记的目录里（从那种目录启动的程序会被降权）
   const CLEAN = process.env.INSTA_CLEAN_DIR || path.join(require('os').homedir(), 'InstaTranslate');
