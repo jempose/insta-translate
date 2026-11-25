@@ -542,19 +542,7 @@ namespace InstaTranslate
                     lock (Lock)
                     {
                         try { s.SpeakAsyncCancelAll(); } catch { }
-                        try
-                        {
-                            string want = "en";
-                            if (lang == "zh") want = "zh";
-                            else if (lang == "ja") want = "ja";
-                            else if (lang == "ko") want = "ko";
-                            else if (lang == "fr") want = "fr";
-                            else if (lang == "de") want = "de";
-                            else if (lang == "es") want = "es";
-                            else if (lang == "ru") want = "ru";
-                            SelectVoice(s, want);
-                        }
-                        catch { }
+                        try { SelectVoice(s, MapLang(lang)); } catch { }
                         try { s.SpeakAsync(t); } catch { }
                         _lastUse = DateTime.Now;
                     }
@@ -564,6 +552,102 @@ namespace InstaTranslate
                     Log.Write("TTS 失败: " + ex.Message);
                 }
             });
+        }
+
+        private static string MapLang(string lang)
+        {
+            if (lang == "zh") return "zh";
+            if (lang == "ja") return "ja";
+            if (lang == "ko") return "ko";
+            if (lang == "fr") return "fr";
+            if (lang == "de") return "de";
+            if (lang == "es") return "es";
+            if (lang == "ru") return "ru";
+            return "en";
+        }
+
+        /// <summary>
+        /// 连续朗读两段：先读原文（例如单词发音），停顿后再读译文。
+        /// 两段可以选不同语言的嗓音（英语词用英文嗓子，释义用中文嗓子）。
+        /// </summary>
+        public static void SpeakPair(string first, string firstLang, string second, string secondLang, int pauseMs)
+        {
+            string a = Trim(first, 400);
+            string b = Trim(second, 600);
+            if (a.Length == 0 && b.Length == 0) return;
+            ThreadPool.QueueUserWorkItem(delegate
+            {
+                try
+                {
+                    var s = Synth();
+                    lock (Lock)
+                    {
+                        try { s.SpeakAsyncCancelAll(); } catch { }
+                        try { SelectVoice(s, MapLang(firstLang)); } catch { }
+                        if (a.Length == 0)
+                        {
+                            try { SelectVoice(s, MapLang(secondLang)); } catch { }
+                            try { s.SpeakAsync(b); } catch { }
+                            return;
+                        }
+                        if (b.Length == 0)
+                        {
+                            try { s.SpeakAsync(a); } catch { }
+                            return;
+                        }
+                        // 读完第一段再读第二段：用 SpeakCompleted 串起来，避免靠定时器猜时长
+                        EventHandler<System.Speech.Synthesis.SpeakCompletedEventArgs> onDone = null;
+                        onDone = delegate(object sender, System.Speech.Synthesis.SpeakCompletedEventArgs e)
+                        {
+                            try { s.SpeakCompleted -= onDone; } catch { }
+                            try
+                            {
+                                Thread.Sleep(pauseMs <= 0 ? 420 : pauseMs);
+                                lock (Lock) { SelectVoice(s, MapLang(secondLang)); }
+                                s.SpeakAsync(b);
+                            }
+                            catch { }
+                        };
+                        s.SpeakCompleted += onDone;
+                        try { s.SpeakAsync(a); } catch { }
+                        _lastUse = DateTime.Now;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Write("TTS 失败: " + ex.Message);
+                }
+            });
+        }
+
+        /// <summary>停止朗读</summary>
+        public static void Stop()
+        {
+            try
+            {
+                lock (Lock)
+                {
+                    var s = Synth();
+                    s.SpeakAsyncCancelAll();
+                }
+            }
+            catch { }
+        }
+
+        public static bool IsSpeaking()
+        {
+            try
+            {
+                lock (Lock) { return _synth != null && _synth.State == System.Speech.Synthesis.SynthesizerState.Speaking; }
+            }
+            catch { return false; }
+        }
+
+        private static string Trim(string s, int max)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            string t = s.Trim();
+            return t.Length > max ? t.Substring(0, max) : t;
         }
 
         private static void SelectVoice(System.Speech.Synthesis.SpeechSynthesizer s, string lang)

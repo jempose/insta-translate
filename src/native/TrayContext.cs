@@ -198,6 +198,7 @@ namespace InstaTranslate
         private void RegisterHotkey()
         {
             if (_registered == _cfg.Hotkey && _msgWindow != null && _msgWindow.Handle != IntPtr.Zero) return;
+            try { Tts.Stop(); } catch { }
             UnregisterHotkey();
             Keys mods, key;
             if (!HotkeyUtil.Parse(_cfg.Hotkey, out mods, out key) || key == Keys.None)
@@ -517,10 +518,28 @@ namespace InstaTranslate
             {
                 if (_popup.Current == null) return;
                 if (!_cfg.Tts) return;
-                string text = _popup.Current.Text;
-                if (_popup.Current.Senses != null && _popup.Current.Senses.Count > 0)
-                    text = string.Join("；", _popup.Current.Senses.ToArray());
-                Tts.Speak(text, _popup.Current.To);
+
+                // 正在读就让它停（再点一次 = 停止）
+                if (Tts.IsSpeaking())
+                {
+                    Tts.Stop();
+                    return;
+                }
+
+                var r = _popup.Current;
+                bool isWord = r.Senses != null && r.Senses.Count > 0;
+                string srcLang = r.From == "auto" ? (string.IsNullOrEmpty(r.Detected) ? "en" : r.Detected) : r.From;
+
+                if (isWord)
+                {
+                    // 单词：先读本词发音（原文语种），停顿后再读释义（目标语种）
+                    string meaning = string.Join("，", r.Senses.ToArray());
+                    Tts.SpeakPair(r.Source, srcLang, meaning, r.To, 450);
+                }
+                else
+                {
+                    Tts.Speak(r.Text, r.To);
+                }
             };
 
             _popup.ClosedByUser += delegate { };
@@ -636,6 +655,7 @@ namespace InstaTranslate
         {
             try { if (_settings != null && !_settings.IsDisposed) { _settings.ForceClose = true; _settings.Close(); } } catch { }
             try { if (_poll != null) { _poll.Stop(); _poll.Dispose(); } } catch { }
+            try { Tts.Stop(); } catch { }
             UnregisterHotkey();
             try { if (_msgWindow != null) _msgWindow.Destroy(); } catch { }
             try { _tray.Visible = false; _tray.Dispose(); } catch { }

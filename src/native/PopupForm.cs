@@ -38,6 +38,7 @@ namespace InstaTranslate
         private Label _ctx;
         private Label _notice;
         private bool _isError;
+        private readonly ToolTip _tip = new ToolTip();
 
         private Button _btnVocab;
         private Button _btnRetranslate;
@@ -328,6 +329,13 @@ namespace InstaTranslate
             }
             _ctx.Text = r.Ctx ?? "";
             _notice.Text = r.Degraded ?? "";
+
+            try
+            {
+                _tip.SetToolTip(_btnSpeak, isWord ? "先读单词发音，再读释义" : "朗读译文");
+                _btnSpeak.Text = isWord ? "🔊 发音" : "🔊 朗读";
+            }
+            catch { }
 
             _btnVocab.Text = isVocab ? "♥ 已收藏" : "♡ 生词本";
             _btnVocab.ForeColor = isVocab ? Theme.Ok : Theme.Fg;

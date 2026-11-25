@@ -324,6 +324,15 @@ namespace InstaTranslate
             string voices = Tts.VoiceList();
             Line("");
             Line("[语音] " + (string.IsNullOrEmpty(voices) ? "未检测到语音包（朗读会静默失败，不影响翻译）" : voices));
+            if (!string.IsNullOrEmpty(voices))
+            {
+                var sw2 = System.Diagnostics.Stopwatch.StartNew();
+                Tts.SpeakPair("serendipity", "en", "机缘巧合，意外发现美好事物的运气", "zh", 450);
+                System.Threading.Thread.Sleep(400);
+                while (Tts.IsSpeaking() && sw2.ElapsedMilliseconds < 20000) System.Threading.Thread.Sleep(120);
+                sw2.Stop();
+                Line("  朗读序列 ✓ 用时 " + sw2.ElapsedMilliseconds + "ms（先英文发音 → 停顿 → 中文释义）");
+            }
 
             // 7 数据
             Line("");
