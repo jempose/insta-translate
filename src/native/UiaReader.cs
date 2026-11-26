@@ -2,6 +2,7 @@ using System;
 using System.Text;
 using System.Threading;
 using System.Windows.Automation;
+using System.Windows.Automation.Text;
 
 namespace InstaTranslate
 {
@@ -137,6 +138,10 @@ namespace InstaTranslate
                 var sb = new StringBuilder();
                 foreach (var r in ranges)
                 {
+                    // 关键：没有选区时，Chromium 会返回"光标处的退化范围"，
+                    // GetText 仍能挤出 1~2 个字符，误当成用户选中的内容。
+                    // 用两端点比较判断是否为空范围，空的直接跳过。
+                    if (IsEmptyRange(r)) continue;
                     string s = r.GetText(8192);
                     if (!string.IsNullOrEmpty(s)) sb.Append(s);
                 }
@@ -146,6 +151,21 @@ namespace InstaTranslate
             catch
             {
                 return null;
+            }
+        }
+
+        /// <summary>选区是否为空（光标折叠状态）</summary>
+        private static bool IsEmptyRange(TextPatternRange r)
+        {
+            try
+            {
+                int cmp = r.CompareEndpoints(
+                    TextPatternRangeEndpoint.Start, r, TextPatternRangeEndpoint.End);
+                return cmp == 0;
+            }
+            catch
+            {
+                return false;
             }
         }
     }

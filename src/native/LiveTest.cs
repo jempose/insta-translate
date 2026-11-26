@@ -83,6 +83,19 @@ namespace InstaTranslate
                     sb.AppendLine("取到：" + (string.IsNullOrEmpty(got) ? "(空)" : got));
                     sb.AppendLine("取词错误信息：" + (string.IsNullOrEmpty(ClipboardCapture.LastError) ? "(无)" : ClipboardCapture.LastError));
 
+                    // 反向用例：把选区折叠掉（按一下右方向键），UIA 必须"读不到"，
+                    // 而不是把光标处的 1~2 个字符当成选中内容。
+                    try
+                    {
+                        Native.SendKeyCombo(0x00, 0x27); // 只发 VK_RIGHT
+                        Thread.Sleep(250);
+                        string none = UiaReader.Read(1500);
+                        bool ok = string.IsNullOrEmpty(none);
+                        sb.AppendLine("无选区时 UIA 返回：" + (ok ? "(空) ✓" : "\"" + none + "\" ✗ 把光标位置当成了选区"));
+                        if (!ok) { sb.AppendLine("结论：✗ 退化选区未过滤"); exit = 1; }
+                    }
+                    catch (Exception ex2) { sb.AppendLine("无选区用例异常：" + ex2.Message); }
+
                     if (got == text) { sb.AppendLine("结论：✓ 跨进程取词可用"); exit = 0; }
                     else if (got.Length > 0) { sb.AppendLine("结论：△ 取到了内容但不完全一致（可能记事本有换行差异）"); exit = 0; }
                     else { sb.AppendLine("结论：✗ 跨进程取词失败"); }

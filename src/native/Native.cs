@@ -398,16 +398,32 @@ namespace InstaTranslate
     {
         public static string LastError = "";
 
+        /// <summary>日志里只显示前 30 个字符，避免刷屏</summary>
+        private static string Snippet(string s)
+        {
+            if (string.IsNullOrEmpty(s)) return "";
+            string t = s.Replace("\r", " ").Replace("\n", " ").Trim();
+            return t.Length <= 30 ? t : t.Substring(0, 30) + "…";
+        }
         public static string Capture(int timeoutMs)
         {
             LastError = "";
             // 先试不需要按键的 UIA；不行再走剪贴板
             string uia = UiaReader.Read(3000);
-            Log.Write("UIA 结果：" + (string.IsNullOrEmpty(uia) ? "无" : uia.Length + " 字") + "｜" + UiaReader.LastInfo);
+            Log.Write("UIA 结果：" + (string.IsNullOrEmpty(uia) ? "无" : uia.Length + " 字 \"" + Snippet(uia) + "\"") + "｜" + UiaReader.LastInfo);
+
+            // 只有 1~2 个字符时很可能是"光标处的退化选区"而不是真的选中，
+            // 这种先当候选，让剪贴板法再确认一次；剪贴板也失败才退回它。
+            string uiaWeak = null;
             if (!string.IsNullOrEmpty(uia) && Lang.LooksTranslatable(uia))
             {
-                LastError = "UIA 取到";
-                return uia;
+                if (uia.Trim().Length >= 2)
+                {
+                    LastError = "UIA 取到";
+                    return uia;
+                }
+                uiaWeak = uia;
+                Log.Write("UIA 只读到 " + uia.Trim().Length + " 个字符，疑似光标位置，改用剪贴板法确认");
             }
 
             string backup = "";
@@ -489,8 +505,19 @@ namespace InstaTranslate
                 LastError = ex.Message;
             }
 
-            if (picked.Length > 0) LastError = "剪贴板法成功";
-            return picked == null ? "" : picked.Trim();
+            if (picked.Length > 0)
+            {
+                LastError = "剪贴板法成功";
+                return picked.Trim();
+            }
+
+            // 剪贴板也没读到，才退回 UIA 的短结果
+            if (uiaWeak != null)
+            {
+                LastError = "UIA 取到（短）";
+                return uiaWeak;
+            }
+            return "";
         }
 
         public static void WriteText(string text)
