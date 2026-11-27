@@ -403,7 +403,7 @@ namespace InstaTranslate
         {
             if (string.IsNullOrEmpty(s)) return "";
             string t = s.Replace("\r", " ").Replace("\n", " ").Trim();
-            return t.Length <= 30 ? t : t.Substring(0, 30) + "…";
+            return t.Length <= 30 ? t : Lang.SafeCut(t, 30) + "…";
         }
         public static string Capture(int timeoutMs)
         {
@@ -542,6 +542,7 @@ namespace InstaTranslate
     {
         private static System.Speech.Synthesis.SpeechSynthesizer _synth;
         private static readonly object Lock = new object();
+        private static volatile bool _pairBusy;
         private static DateTime _lastUse = DateTime.MinValue;
 
         private static System.Speech.Synthesis.SpeechSynthesizer Synth()
@@ -599,6 +600,7 @@ namespace InstaTranslate
         /// </summary>
         public static void SpeakPair(string first, string firstLang, string second, string secondLang, int pauseMs)
         {
+            _pairBusy = true;
             string a = Trim(first, 400);
             string b = Trim(second, 600);
             if (a.Length == 0 && b.Length == 0) return;
@@ -611,15 +613,17 @@ namespace InstaTranslate
                     {
                         try { s.SpeakAsyncCancelAll(); } catch { }
                         try { SelectVoice(s, MapLang(firstLang)); } catch { }
-                        if (a.Length == 0)
+                        if (a.Length == 0 || b.Length == 0)
                         {
-                            try { SelectVoice(s, MapLang(secondLang)); } catch { }
-                            try { s.SpeakAsync(b); } catch { }
-                            return;
-                        }
-                        if (b.Length == 0)
-                        {
-                            try { s.SpeakAsync(a); } catch { }
+                            EventHandler<System.Speech.Synthesis.SpeakCompletedEventArgs> doneOnly = null;
+                            doneOnly = delegate(object o1, System.Speech.Synthesis.SpeakCompletedEventArgs e1)
+                            {
+                                try { s.SpeakCompleted -= doneOnly; } catch { }
+                                _pairBusy = false;
+                            };
+                            s.SpeakCompleted += doneOnly;
+                            try { SelectVoice(s, MapLang(a.Length == 0 ? secondLang : firstLang)); } catch { }
+                            try { s.SpeakAsync(a.Length == 0 ? b : a); } catch { }
                             return;
                         }
                         // 读完第一段再读第二段：用 SpeakCompleted 串起来，避免靠定时器猜时长
@@ -631,6 +635,13 @@ namespace InstaTranslate
                             {
                                 Thread.Sleep(pauseMs <= 0 ? 420 : pauseMs);
                                 lock (Lock) { SelectVoice(s, MapLang(secondLang)); }
+                                EventHandler<System.Speech.Synthesis.SpeakCompletedEventArgs> done2 = null;
+                                done2 = delegate(object o2, System.Speech.Synthesis.SpeakCompletedEventArgs e2)
+                                {
+                                    try { s.SpeakCompleted -= done2; } catch { }
+                                    _pairBusy = false;
+                                };
+                                s.SpeakCompleted += done2;
                                 s.SpeakAsync(b);
                             }
                             catch { }
@@ -646,6 +657,9 @@ namespace InstaTranslate
                 }
             });
         }
+
+        /// <summary>是否正在朗读一段"先原文后译文"的序列</summary>
+        public static bool PairBusy { get { return _pairBusy; } }
 
         /// <summary>停止朗读</summary>
         public static void Stop()
@@ -674,7 +688,7 @@ namespace InstaTranslate
         {
             if (string.IsNullOrEmpty(s)) return "";
             string t = s.Trim();
-            return t.Length > max ? t.Substring(0, max) : t;
+            return t.Length > max ? Lang.SafeCut(t, max) : t;
         }
 
         private static void SelectVoice(System.Speech.Synthesis.SpeechSynthesizer s, string lang)

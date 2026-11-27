@@ -227,6 +227,24 @@ namespace InstaTranslate
                 Line("  配置读写 ✗ " + ex.Message);
             }
 
+            // 1b 取到的文本要先洗一遍：富文本控件会把内嵌图片报成 U+FFFC
+            try
+            {
+                string dirty = "\ufffc\n\ufffc\n\ufffc\n\ufffc\n赞\n16";
+                string cleaned = Lang.Normalize(dirty);
+                if (cleaned == "赞\n16") Line("  占位符清理 ✓ 图片占位符已剔除");
+                else
+                {
+                    fail++;
+                    Line("  占位符清理 ✗ 期望「赞\\n16」，实际「" + cleaned.Replace("\n", "\\n") + "」");
+                }
+            }
+            catch (Exception ex)
+            {
+                fail++;
+                Line("  占位符清理 ✗ " + ex.Message);
+            }
+
             // 2 钩子
             try
             {
@@ -328,8 +346,8 @@ namespace InstaTranslate
             {
                 var sw2 = System.Diagnostics.Stopwatch.StartNew();
                 Tts.SpeakPair("serendipity", "en", "机缘巧合，意外发现美好事物的运气", "zh", 450);
-                System.Threading.Thread.Sleep(400);
-                while (Tts.IsSpeaking() && sw2.ElapsedMilliseconds < 20000) System.Threading.Thread.Sleep(120);
+                System.Threading.Thread.Sleep(300);
+                while (Tts.PairBusy && sw2.ElapsedMilliseconds < 20000) System.Threading.Thread.Sleep(120);
                 sw2.Stop();
                 Line("  朗读序列 ✓ 用时 " + sw2.ElapsedMilliseconds + "ms（先英文发音 → 停顿 → 中文释义）");
             }

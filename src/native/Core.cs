@@ -335,13 +335,76 @@ namespace InstaTranslate
             else to = "zh";
         }
 
+        /// <summary>
+        /// 轻量清理：只删掉显示不出来的占位符（U+FFFC 等）和零宽字符，
+        /// 保留原有换行，用于译文展示。
+        /// </summary>
+        /// <summary>安全截断：不会把代理对（emoji 等）切成两半</summary>
+        public static string SafeCut(string s, int max)
+        {
+            if (string.IsNullOrEmpty(s) || max <= 0) return "";
+            if (s.Length <= max) return s;
+            int cut = max;
+            if (char.IsHighSurrogate(s[cut - 1])) cut--;
+            if (cut <= 0) return "";
+            return s.Substring(0, cut);
+        }
+
+        public static string Clean(string text)
+        {
+            if (text == null) return "";
+            string t = text;
+            t = t.Replace("\ufffc", "").Replace("\ufffd", "")
+                 .Replace("\u200b", "").Replace("\u200c", "").Replace("\u200d", "").Replace("\ufeff", "")
+                 .Replace("\u0000", "");
+            t = t.Replace("\r\n", "\n").Replace('\r', '\n');
+            var sb = new StringBuilder();
+            foreach (string line in t.Split('\n'))
+            {
+                string s = line.TrimEnd();
+                if (s.Trim().Length == 0)
+                {
+                    // 连续空行只留一个
+                    if (sb.Length > 0 && !sb.ToString().EndsWith("\n\n")) sb.Append('\n');
+                    continue;
+                }
+                if (sb.Length > 0 && !sb.ToString().EndsWith("\n")) sb.Append('\n');
+                sb.Append(s.TrimStart());
+            }
+            return sb.ToString().Trim();
+        }
         public static string Normalize(string text)
         {
             if (text == null) return "";
             string t = text.Replace("\r\n", "\n").Replace('\r', '\n');
-            t = t.Replace("\u00ad", "").Replace("\u200b", "").Replace("\u200c", "").Replace("\u200d", "").Replace("\ufeff", "");
+
+            // 去掉零宽字符、软连字符、BOM、方向控制符
+            t = t.Replace("\u00ad", "").Replace("\u200b", "").Replace("\u200c", "")
+                 .Replace("\u200d", "").Replace("\ufeff", "")
+                 .Replace("\u200e", "").Replace("\u200f", "")
+                 .Replace("\u202a", "").Replace("\u202b", "").Replace("\u202c", "")
+                 .Replace("\u202d", "").Replace("\u202e", "");
             t = t.Replace('\u00a0', ' ');
-            return t.Trim();
+
+            // 关键：富文本控件（微信、QQ、部分网页）会把内嵌图片/表情报成
+            // U+FFFC 对象替换符。它既翻不出东西，又会原样进到大模型和气泡里
+            // 显示成一排"豆腐块"。这里直接剔除。
+            t = t.Replace("\ufffc", "").Replace("\ufffd", "").Replace("\u25a1", "");
+            t = t.Replace("\u0000", "");
+
+            // 收起多余空行/空格：连续空行压成一个换行，行首尾空白去掉
+            t = System.Text.RegularExpressions.Regex.Replace(t, "[ \\t]+", " ");
+            t = System.Text.RegularExpressions.Regex.Replace(t, "\\n{2,}", "\n");
+            string[] lines = t.Split('\n');
+            var sb = new StringBuilder();
+            foreach (string line in lines)
+            {
+                string s = line.Trim();
+                if (s.Length == 0) continue;
+                if (sb.Length > 0) sb.Append('\n');
+                sb.Append(s);
+            }
+            return sb.ToString().Trim();
         }
     }
 

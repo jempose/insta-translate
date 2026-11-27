@@ -87,13 +87,24 @@ namespace InstaTranslate
                     // 而不是把光标处的 1~2 个字符当成选中内容。
                     try
                     {
+                        if (Native.Foreground() != hwnd)
+                        {
+                            sb.AppendLine("无选区用例 · 跳过（记事本已不在前台，可能被判为用户正在操作）");
+                            throw new OperationCanceledException();
+                        }
                         Native.SendKeyCombo(0x00, 0x27); // 只发 VK_RIGHT
                         Thread.Sleep(250);
                         string none = UiaReader.Read(1500);
+                        if (Native.Foreground() != hwnd)
+                        {
+                            sb.AppendLine("无选区用例 · 跳过（取词期间前台被切走）");
+                            throw new OperationCanceledException();
+                        }
                         bool ok = string.IsNullOrEmpty(none);
                         sb.AppendLine("无选区时 UIA 返回：" + (ok ? "(空) ✓" : "\"" + none + "\" ✗ 把光标位置当成了选区"));
                         if (!ok) { sb.AppendLine("结论：✗ 退化选区未过滤"); exit = 1; }
                     }
+                    catch (OperationCanceledException) { }
                     catch (Exception ex2) { sb.AppendLine("无选区用例异常：" + ex2.Message); }
 
                     if (got == text) { sb.AppendLine("结论：✓ 跨进程取词可用"); exit = 0; }

@@ -290,7 +290,7 @@ namespace InstaTranslate
         {
             ResetContent();
             Current = null;
-            _src.Text = OneLine(source, 160);
+            _src.Text = OneLine(Lang.Clean(source), 160);
             _trans.Text = "翻译中…";
             _trans.ForeColor = Theme.Dim;
             LayoutAll(true);
@@ -304,14 +304,14 @@ namespace InstaTranslate
             IsVocab = isVocab;
             _trans.ForeColor = Theme.Fg;
 
-            _src.Text = OneLine(r.Source, 200);
+            _src.Text = OneLine(Lang.Clean(r.Source), 200);
             _dir.Text = Lang.NameOf(r.From == "auto" ? (string.IsNullOrEmpty(r.Detected) ? "auto" : r.Detected) : r.From) + " → " + Lang.NameOf(r.To);
             _engine.Text = r.EngineLabel ?? "";
             _meta.Text = r.Elapsed > 0 ? (r.Elapsed + " ms") : "";
 
             bool isWord = r.Senses != null && r.Senses.Count > 0;
             _trans.Font = isWord ? Theme.UiBold(12f) : Theme.Ui(10.5f);
-            _trans.Text = isWord ? r.Senses[0] : (r.Text ?? "");
+            _trans.Text = Lang.Clean(isWord ? r.Senses[0] : (r.Text ?? ""));
             if (string.IsNullOrEmpty(_trans.Text)) _trans.Text = "（无译文）";
 
             if (!string.IsNullOrEmpty(r.Pos)) _phon.Text = r.Pos + (string.IsNullOrEmpty(r.Phonetic) ? "" : "  " + WrapPhonetic(r.Phonetic));
@@ -362,7 +362,7 @@ namespace InstaTranslate
         {
             ResetContent();
             Current = null;
-            _src.Text = OneLine(source, 160);
+            _src.Text = OneLine(Lang.Clean(source), 160);
             _trans.Text = "翻译失败";
             _trans.ForeColor = Theme.Danger;
             _hint.Text = message ?? "";
@@ -378,7 +378,7 @@ namespace InstaTranslate
         {
             if (string.IsNullOrEmpty(s)) return "";
             string t = s.Replace("\r", " ").Replace("\n", " ").Trim();
-            if (t.Length > max) t = t.Substring(0, max) + "…";
+            if (t.Length > max) t = Lang.SafeCut(t, max) + "…";
             return t;
         }
 

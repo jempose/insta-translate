@@ -382,7 +382,16 @@ namespace InstaTranslate
                 if (!File.Exists(file)) return new List<HistoryItem>();
                 string json = File.ReadAllText(file, Encoding.UTF8);
                 var list = Json.To<List<HistoryItem>>(json);
-                return list ?? new List<HistoryItem>();
+                if (list == null) return new List<HistoryItem>();
+                // 老数据里可能带着富文本的图片占位符（U+FFFC），读进来先洗一遍
+                foreach (var it in list)
+                {
+                    if (it == null) continue;
+                    it.Source = Lang.Clean(it.Source);
+                    it.Translation = Lang.Clean(it.Translation);
+                }
+                list.RemoveAll(delegate(HistoryItem it) { return it == null || string.IsNullOrEmpty(it.Source); });
+                return list;
             }
             catch
             {
