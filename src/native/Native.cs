@@ -398,6 +398,17 @@ namespace InstaTranslate
     {
         public static string LastError = "";
 
+        /// <summary>前台窗口所属进程名（小写），拿不到返回空串</summary>
+        public static string ForegroundProcessName()
+        {
+            try
+            {
+                int pid = Native.ForegroundPid();
+                if (pid == 0) return "";
+                return System.Diagnostics.Process.GetProcessById((int)pid).ProcessName.ToLowerInvariant();
+            }
+            catch { return ""; }
+        }
         /// <summary>日志里只显示前 30 个字符，避免刷屏</summary>
         private static string Snippet(string s)
         {
@@ -408,9 +419,23 @@ namespace InstaTranslate
         public static string Capture(int timeoutMs)
         {
             LastError = "";
-            // 先试不需要按键的 UIA；不行再走剪贴板
-            string uia = UiaReader.Read(3000);
-            Log.Write("UIA 结果：" + (string.IsNullOrEmpty(uia) ? "无" : uia.Length + " 字 \"" + Snippet(uia) + "\"") + "｜" + UiaReader.LastInfo);
+            // 微信（Weixin/WeChat）是自绘界面，基本不向无障碍接口暴露内容：
+            // 实测主窗口 UIA 元素数为 0，只有"焦点元素"能挤出零星几个字符（图标还是 U+FFFC）。
+            // 所以这类程序直接走剪贴板法，反而能拿到完整段落。
+            string fgProc = ForegroundProcessName();
+            bool weakA11y = fgProc.IndexOf("weixin") >= 0 || fgProc.IndexOf("wechat") >= 0
+                            || fgProc.IndexOf("dingtalk") >= 0 || fgProc.IndexOf("wxwork") >= 0;
+
+            string uia = null;
+            if (!weakA11y)
+            {
+                uia = UiaReader.Read(3000);
+            }
+            else
+            {
+                Log.Write("前台是 " + fgProc + "（自绘界面），跳过 UIA，直接用剪贴板法");
+            }
+            if (!weakA11y) Log.Write("UIA 结果：" + (string.IsNullOrEmpty(uia) ? "无" : uia.Length + " 字 \"" + Snippet(uia) + "\"") + "｜" + UiaReader.LastInfo);
 
             // 只有 1~2 个字符时很可能是"光标处的退化选区"而不是真的选中，
             // 这种先当候选，让剪贴板法再确认一次；剪贴板也失败才退回它。
@@ -509,6 +534,18 @@ namespace InstaTranslate
             {
                 LastError = "剪贴板法成功";
                 return picked.Trim();
+            }
+
+            if (weakA11y)
+            {
+                // 剪贴板也没成功：对自绘界面再试一次 UIA（可能刚刚才建立无障碍）
+                string late = UiaReader.Read(1200);
+                if (!string.IsNullOrEmpty(late) && Lang.LooksTranslatable(late))
+                {
+                    Log.Write("剪贴板法失败，UIA 补救：" + late.Length + " 字");
+                    LastError = "UIA 补救";
+                    return late;
+                }
             }
 
             // 剪贴板也没读到，才退回 UIA 的短结果

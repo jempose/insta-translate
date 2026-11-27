@@ -1,0 +1,10 @@
+fix(capture): 微信/企微/钉钉这类自绘界面改用剪贴板法取词
+
+实测微信 4.x 主窗口对 UI Automation 完全不可见：FromHandle 取子元素为 0，
+RawView 遍历也是 0 个元素。之前偶尔能拿到零星字符，是 UIA 的 MSAA 兼容层
+对「焦点元素」给了点文本，里面内嵌的图标还是 U+FFFC，于是出现「取到一行方块」。
+
+- 前台进程是 weixin / wechat / wxwork / dingtalk 时跳过 UIA，直接模拟 Ctrl+C
+- 剪贴板法也失败时，再回头试一次 UIA 作为补救
+- 日志会写明「前台是 xxx（自绘界面），跳过 UIA」
+- 版本 1.0.5

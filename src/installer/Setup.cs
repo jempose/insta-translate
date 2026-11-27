@@ -13,7 +13,7 @@ namespace InstaTranslateSetup
     {
         internal const string AppName = "即时译";
         private const string AppId = "InstaTranslate";
-        internal const string Version = "1.0.4";
+        internal const string Version = "1.0.5";
         internal const string Publisher = "郑铮培";
 
         [STAThread]
