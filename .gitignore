@@ -14,3 +14,5 @@ livetest-*.txt
 .idea/
 Thumbs.db
 desktop.ini
+*.tmp
+
